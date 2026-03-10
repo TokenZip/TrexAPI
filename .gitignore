@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.npm-cache/
+tmp/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# SQLite (local/dev DBs; optional: remove if you want to track schema via DB)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs & runtime
+logs/
+*.log
+npm-debug.log*
+
+# OS & editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-*
+
+# Official site UI source (not in public repo; CF deploy uses worker’s embedded copy)
+public/demo.html
+
+# Optional: internal-only / reference docs (uncomment if you don't want in public repo)
+docs/TZP-软件源抢占指南.md
+# DEPLOYMENT_zh.md
+# worker/DEPLOY.md
+# placeholder-packages/

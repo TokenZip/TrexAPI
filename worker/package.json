@@ -1,0 +1,23 @@
+{
+  "name": "trexapi-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "d1:create": "wrangler d1 create trexapi",
+    "d1:migrate": "wrangler d1 execute trexapi --remote --file=migrations/0001_init.sql",
+    "d1:migrate:local": "wrangler d1 execute trexapi --local --file=migrations/0001_init.sql"
+  },
+  "dependencies": {
+    "hono": "^4.12.6",
+    "@hono/zod-validator": "^0.7.6",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241230.0",
+    "wrangler": "^4.14.4",
+    "typescript": "^5.9.3"
+  }
+}

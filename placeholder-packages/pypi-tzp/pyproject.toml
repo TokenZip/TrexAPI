@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tzp"
+version = "0.0.1"
+description = "TokenZip Protocol (TZP) - Semantic shared memory for AI agents. Placeholder for official SDK."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "TokenZip Labs" }]
+keywords = ["tzp", "tokenzip", "ai", "semantic", "protocol"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+]
+requires-python = ">=3.9"
+
+[tool.setuptools.packages.find]
+where = ["src"]

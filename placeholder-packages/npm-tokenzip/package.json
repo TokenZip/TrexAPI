@@ -1,0 +1,11 @@
+{
+  "name": "tokenzip",
+  "version": "0.0.1",
+  "description": "TokenZip Protocol (TZP) - Semantic shared memory for AI agents. Placeholder for official SDK.",
+  "main": "index.js",
+  "keywords": ["tzp", "tokenzip", "ai", "semantic", "protocol"],
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/tokenzip/tokenzip-ts" },
+  "homepage": "https://github.com/tokenzip/tzp-spec",
+  "author": "TokenZip Labs"
+}
