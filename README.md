@@ -63,9 +63,9 @@ Default: `http://localhost:3000`. See **[Deployment](#deployment--部署)** belo
 | **3. Prod** | `npm run build && npm start`. |
 | **4. Docker** | `docker build -t trexapi . && docker run -d -p 3000:3000 -e DEV_API_KEY=testkey trexapi` (or use [docker-compose](https://docs.docker.com/compose/) with a `Dockerfile` in repo). |
 
-**Production checklist:** Remove `DEV_API_KEY`; use HMAC auth (see [Full deployment doc](./DEPLOYMENT_zh.md)); put behind HTTPS (e.g. Nginx/Caddy).
+**Production checklist:** Remove `DEV_API_KEY`; use HMAC auth (see [Deployment: EN](./DEPLOYMENT.md) | [中文](./DEPLOYMENT_zh.md)); put behind HTTPS (e.g. Nginx/Caddy).
 
-**部署速览：** 复制 `.env.example` 为 `.env`，配置 `PORT`、`TZP_REGION`；开发可设 `DEV_API_KEY=testkey`。开发用 `npm run dev`，生产用 `npm run build && npm start`。Docker 构建后 `-p 3000:3000` 并传入环境变量即可。生产环境务必去掉 `DEV_API_KEY`、启用 HMAC 鉴权并配置 HTTPS，详见 [完整部署文档](./DEPLOYMENT_zh.md)。
+**部署速览：** 复制 `.env.example` 为 `.env`，配置 `PORT`、`TZP_REGION`；开发可设 `DEV_API_KEY=testkey`。开发用 `npm run dev`，生产用 `npm run build && npm start`。Docker 构建后 `-p 3000:3000` 并传入环境变量即可。生产环境务必去掉 `DEV_API_KEY`、启用 HMAC 鉴权并配置 HTTPS，详见 [部署文档 EN](./DEPLOYMENT.md) | [中文](./DEPLOYMENT_zh.md)。
 
 ### API overview
 
@@ -139,7 +139,7 @@ cp .env.example .env
 npm run build && npm start
 ```
 
-默认监听：`http://localhost:3000`。生产部署与步骤见 **[Deployment / 部署](#deployment--部署)**（上文已含中英双语速览与 [完整部署文档](./DEPLOYMENT_zh.md) 链接）。
+默认监听：`http://localhost:3000`。生产部署与步骤见 **[Deployment / 部署](#deployment--部署)**（上文已含中英双语速览；完整文档 [EN](./DEPLOYMENT.md) | [中文](./DEPLOYMENT_zh.md)）。
 
 ### API 概览
 
