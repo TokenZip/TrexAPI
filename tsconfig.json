@@ -35,5 +35,6 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
+  "exclude": ["worker", "node_modules", "dist", "placeholder-packages"]
 }
