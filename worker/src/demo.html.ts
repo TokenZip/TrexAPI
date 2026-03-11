@@ -294,6 +294,9 @@ footer{
 }
 .lang-switcher button:hover{color:var(--text-bright)}
 .lang-switcher button.active{background:rgba(92,74,58,.15);color:var(--accent);font-weight:600}
+nav .nav-github{display:inline-flex;align-items:center;padding:.35rem .5rem;border-radius:8px;color:var(--text-dim);transition:color .2s,background .2s}
+nav .nav-github:hover{color:var(--text-bright);background:rgba(92,74,58,.08);text-decoration:none}
+nav .nav-github svg{width:1.25rem;height:1.25rem;fill:currentColor}
 </style>
 </head>
 <body>
@@ -312,6 +315,7 @@ footer{
       <button type="button" id="langEn" data-lang="en">English</button>
       <button type="button" id="langZh" data-lang="zh">中文</button>
     </span></li>
+    <li><a href="https://github.com/tokenzip/trexapi" class="nav-github" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
   </ul>
 </nav>
 
@@ -334,7 +338,7 @@ footer{
       <div class="label" data-i18n="hero_cost">Cost Savings</div>
     </div>
   </div>
-  <a href="#playground" class="cta-btn" data-i18n="cta_demo">Try Live Demo ↓</a>
+  <a href="https://github.com/tokenzip/trexapi" class="cta-btn" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:.5rem"><svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span data-i18n="cta_github">GitHub</span></a>
 </section>
 
 <!-- ═══════════════ PROBLEM ═══════════════ -->
@@ -591,7 +595,7 @@ const i18n = {
     hero_title: 'AI-to-AI Communication\\nReinvented',
     hero_subtitle: 'TokenZip Protocol (TZP) is the universal semantic shared memory standard for heterogeneous AI agents. Replace 10,000-token payloads with a 15-character pointer. Try the interactive demo below.',
     hero_bandwidth: 'Bandwidth Reduction', hero_latency: 'Latency Reduction', hero_cost: 'Cost Savings',
-    cta_demo: 'Try Live Demo ↓',
+    cta_demo: 'Try Live Demo ↓', cta_github: 'GitHub',
     problem_label: 'The Problem', problem_title: 'The Fatal Bottleneck of AI-to-AI Communication',
     problem_desc: "Today's multi-agent systems rely on passing full natural-language context between agents — resulting in explosive latency and runaway API costs at scale.",
     compare_old: 'Traditional', compare_new: 'TZP', pass_value: 'Pass-by-Value', pass_ref: 'Pass-by-Reference',
@@ -605,7 +609,7 @@ const i18n = {
     phase_0: 'Phase 0', phase_1: 'Phase I', phase_2: 'Phase II', phase_3: 'Phase III', auto_play: 'Auto Play',
     pg_label: 'Live Playground', pg_title: 'Interactive API Demo',
     pg_desc: 'The controls below call the running TrexAPI backend in real time. Experience the full Push / Pull workflow live.',
-    pg_apikey: 'API Key:', pg_baseurl: 'Base URL:', pg_apikey_ph: 'Enter your DEV_API_KEY from .env', pg_baseurl_ph: 'auto-detect',
+    pg_apikey: 'API Key:', pg_baseurl: 'Base URL:', pg_apikey_ph: 'Leave empty for public demo', pg_baseurl_ph: 'auto-detect',
     pg_push: 'Push', pg_pull: 'Pull', pg_push_ph: 'Type or paste long-form text...', pg_pull_ph: 'tx_xx_xxxxxxxxx',
     btn_push: 'Push to Edge Network', btn_pull: 'Pull', pg_push_result_ph: 'Results will appear here...', pg_pull_result_ph: 'Enter a TrexID and click Pull to retrieve the payload...',
     bench_label: 'Performance', bench_title: 'Benchmark Results', bench_desc: 'Based on the reference implementation. Averaged over 1,000 round-trips with 10,000-token English documents.',
@@ -623,8 +627,9 @@ const i18n = {
     tzp_enterprise: 'TZP-Enterprise', tzp_enterprise_desc: '+ E2EE / SOC 2 / 99.9% SLA',
     footer_copyright: '© 2026 TokenZip Foundation. Apache 2.0 / CC-BY-SA 4.0 Dual-Licensed.',
     footer_standard: 'TokenZip Protocol is an open standard.',
-    err_apikey: 'Please enter an API Key first', err_network: 'Network Error: ', err_network_hint: '\\nMake sure TrexAPI is running (npm run dev)',
-    pushing: 'Pushing...', push_wait: 'Pushing payload to edge network...', pull_wait: 'Fetching payload from edge network...'
+    err_apikey: 'Enter an API Key or leave empty for public demo', err_network: 'Network Error: ', err_network_hint: '\\nMake sure TrexAPI is running (npm run dev)',
+    pushing: 'Pushing...', push_wait: 'Pushing payload to edge network...', pull_wait: 'Fetching payload from edge network...',
+    compression_note: 'Demo uses synthetic vectors; real TZP compresses long text (~81%+).'
   },
   zh: {
     nav_home: '首页', nav_problem: '问题', nav_workflow: '流程', nav_playground: '试玩', nav_benchmark: '性能', nav_ecosystem: '生态',
@@ -632,7 +637,7 @@ const i18n = {
     hero_title: 'AI 间通信\\n重新定义',
     hero_subtitle: 'TokenZip 协议 (TZP) 是面向异构 AI 代理的通用语义共享内存标准。用 15 字符的指针替代上万 Token 的载荷。下方可体验交互式演示。',
     hero_bandwidth: '带宽降低', hero_latency: '延迟降低', hero_cost: '成本节省',
-    cta_demo: '体验在线演示 ↓',
+    cta_demo: '体验在线演示 ↓', cta_github: 'GitHub',
     problem_label: '问题', problem_title: 'AI 间通信的致命瓶颈',
     problem_desc: '当今多智能体系统依赖在代理间传递完整自然语言上下文，导致延迟暴增与 API 成本失控。',
     compare_old: '传统', compare_new: 'TZP', pass_value: '传值', pass_ref: '传指针',
@@ -646,7 +651,7 @@ const i18n = {
     phase_0: '阶段 0', phase_1: '阶段 I', phase_2: '阶段 II', phase_3: '阶段 III', auto_play: '自动播放',
     pg_label: '在线试玩', pg_title: '交互式 API 演示',
     pg_desc: '下方控件实时调用 TrexAPI 后端，可完整体验推送/拉取流程。',
-    pg_apikey: 'API Key：', pg_baseurl: 'Base URL：', pg_apikey_ph: '请输入 .env 中的 DEV_API_KEY', pg_baseurl_ph: '自动检测',
+    pg_apikey: 'API Key：', pg_baseurl: 'Base URL：', pg_apikey_ph: '留空即用公开演示', pg_baseurl_ph: '自动检测',
     pg_push: '推送', pg_pull: '拉取', pg_push_ph: '输入或粘贴长文本…', pg_pull_ph: 'tx_xx_xxxxxxxxx',
     btn_push: '推送到边缘网络', btn_pull: '拉取', pg_push_result_ph: '结果将显示在这里…', pg_pull_result_ph: '输入 TrexID 后点击拉取…',
     bench_label: '性能', bench_title: '基准测试结果', bench_desc: '基于参考实现，10,000 Token 英文文档 × 1,000 次往返取平均。',
@@ -664,8 +669,9 @@ const i18n = {
     tzp_enterprise: 'TZP-Enterprise', tzp_enterprise_desc: '+ E2EE / SOC 2 / 99.9% SLA',
     footer_copyright: '© 2026 TokenZip Foundation. Apache 2.0 / CC-BY-SA 4.0 双许可。',
     footer_standard: 'TokenZip 协议为开放标准。',
-    err_apikey: '请先输入 API Key', err_network: '网络错误：', err_network_hint: '\\n请确认 TrexAPI 已运行 (npm run dev)',
-    pushing: '推送中…', push_wait: '正在将载荷推送到边缘网络…', pull_wait: '正在从边缘网络拉取载荷…'
+    err_apikey: '输入 API Key 或留空使用公开演示', err_network: '网络错误：', err_network_hint: '\\n请确认 TrexAPI 已运行 (npm run dev)',
+    pushing: '推送中…', push_wait: '正在将载荷推送到边缘网络…', pull_wait: '正在从边缘网络拉取载荷…',
+    compression_note: '试玩使用合成向量；真实 TZP 对长文本约 81%+ 压缩。'
   }
 };
 function setLang(lang) {
@@ -784,7 +790,8 @@ function getBaseUrl() {
 }
 
 function getApiKey() {
-  return document.getElementById('apiKeyInput').value.trim();
+  var key = document.getElementById('apiKeyInput').value.trim();
+  return key || 'demo-investor-key';
 }
 
 function generateFakeVectors(text) {
@@ -847,9 +854,6 @@ async function doPush() {
     }
   };
 
-  const originalTextSize = new Blob([text]).size;
-  const payloadSize = new Blob([JSON.stringify(body.payload)]).size;
-
   try {
     const t0 = performance.now();
     const res = await fetch(getBaseUrl() + '/v1/payloads', {
@@ -869,15 +873,11 @@ async function doPush() {
       return;
     }
 
-    const compressionRatio = ((1 - payloadSize / originalTextSize) * 100).toFixed(1);
-
     document.getElementById('pushResult').innerHTML =
       '<span class="field-label">TrexID:</span>  <span class="trex-id">' + data.trex_id + '</span>\\n' +
       '<span class="field-label">Edge Region:</span>  ' + data.edge_region + '\\n' +
       '<span class="field-label">Expires:</span>  ' + data.expires_at + '\\n' +
       '<span class="field-label">Payload Size:</span>  ' + data.payload_size_bytes + ' bytes\\n' +
-      '<span class="field-label">Original Text:</span>  ' + originalTextSize + ' bytes\\n' +
-      '<span class="field-label">Compression:</span>  <span style="color:var(--green)">' + compressionRatio + '% smaller</span>\\n' +
       '<span class="field-label">Checksum:</span>  ' + data.checksum_sha256.slice(0, 16) + '...\\n' +
       '<span class="field-label">Latency:</span>  ' + elapsed + ' ms';
 

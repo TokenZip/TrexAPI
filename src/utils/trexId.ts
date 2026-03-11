@@ -4,9 +4,9 @@ const BASE62_CHARS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV
 
 const generateBase62String = (length: number): string => {
     let result = ''
-    const randomBytes = crypto.randomBytes(length)
     for (let i = 0; i < length; i++) {
-        result += BASE62_CHARS[randomBytes[i]! % 62]
+        const randomIndex = crypto.randomInt(0, 62)
+        result += BASE62_CHARS[randomIndex]
     }
     return result
 }

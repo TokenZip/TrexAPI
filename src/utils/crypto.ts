@@ -15,18 +15,11 @@ export const authMiddleware = async (c: Context, next: Next) => {
         }, 401)
     }
 
-    // The actual HMAC verification logic would go here
-    // For standard TZP, the exact HMAC signing string to verify isn't strictly defined,
-    // but let's mock the process:
-    // e.g., token format: Bearer <key_id>:<hmac_signature>
     const token = authHeader.replace(/^Bearer\s+/, '').replace(/^hmac\s+/, '')
-    const [keyId, signature] = token.split(':')
+    const parts = token.split(':')
 
-    if (!keyId || !signature) {
-        // If not in `<id>:<sig>` format, we will just pass it to mock validation
-        // In a real scenario, you'd fail here. For easy development/testing, we might allow a direct key.
-
-        // Check if the token strictly equals a dev api key
+    // Format: {agent_id}:{timestamp_iso8601}:{nonce}:{signature_base64url}
+    if (parts.length !== 4) {
         if (token === process.env.DEV_API_KEY) {
             c.set('agent_id', 'agent_dev_01')
             await next()
@@ -36,30 +29,82 @@ export const authMiddleware = async (c: Context, next: Next) => {
         return c.json({
             error: {
                 code: 'TREX_UNAUTHORIZED',
-                message: 'Invalid signature format. Expected Bearer <keyId>:<signature> or valid DEV matching token.',
+                message: 'Invalid signature format. Expected Bearer <agent_id>:<timestamp>:<nonce>:<signature>.',
                 status: 401
             }
         }, 401)
     }
 
-    try {
-        const row = db.prepare('SELECT secret, agent_id FROM api_keys WHERE key_id = ?').get(keyId) as { secret: string, agent_id: string } | undefined
+    const [agentId, timestampStr, nonce, signatureBase64url] = parts
 
-        if (!row) {
+    if (!agentId || !timestampStr || !nonce || !signatureBase64url) {
+        return c.json({
+            error: {
+                code: 'TREX_UNAUTHORIZED',
+                message: 'Invalid signature format. Missing expected parts.',
+                status: 401
+            }
+        }, 401)
+    }
+
+    // Validate Timestamp (±5 minutes)
+    const requestTime = new Date(timestampStr).getTime()
+    const now = Date.now()
+    if (isNaN(requestTime) || Math.abs(now - requestTime) > 5 * 60 * 1000) {
+        return c.json({
+            error: { code: 'TREX_UNAUTHORIZED', message: 'Request timestamp is invalid or expired (±5 minutes).', status: 401 }
+        }, 401)
+    }
+
+    // Validate Nonce (10 min duplicate window)
+    try {
+        const stmt = db.prepare('SELECT nonce FROM nonces WHERE nonce = ?')
+        const existingNonce = stmt.get(nonce)
+        
+        if (existingNonce) {
             return c.json({
-                error: { code: 'TREX_UNAUTHORIZED', message: 'API Key not found.', status: 401 }
+                error: { code: 'TREX_UNAUTHORIZED', message: 'Nonce has already been used (Replay Attack Prevention).', status: 401 }
             }, 401)
         }
 
-        const { secret, agent_id } = row
+        // Clean up old nonces and insert new one
+        db.prepare("DELETE FROM nonces WHERE expires_at < datetime('now')").run()
+        const nonceExpiresAt = new Date(now + 10 * 60 * 1000).toISOString()
+        db.prepare('INSERT INTO nonces (nonce, agent_id, expires_at) VALUES (?, ?, ?)').run(nonce, agentId, nonceExpiresAt)
+    } catch (error) {
+         console.error('Nonce validation error:', error)
+         return c.json({
+             error: { code: 'TREX_INTERNAL_ERROR', message: 'Internal Server Error during nonce verification', status: 500 }
+         }, 500)
+    }
 
-        // Construct the payload to check the signature against. 
-        // Usually it's the raw body or timestamp + uri.
-        // For this reference API, we will just hash the key_id with the secret to keep it simple.
-        const expectedSignature = crypto.createHmac('sha256', secret).update(keyId).digest('hex')
+    try {
+        const row = db.prepare('SELECT secret FROM api_keys WHERE agent_id = ?').get(agentId) as { secret: string } | undefined
+
+        // For this reference API, to make testing easy without populating api_keys, we can also fallback to DEV_API_KEY 
+        // if agent_id starts with agent_dev
+        let secret = row?.secret
+        if (!secret && agentId.startsWith('agent_dev') && process.env.DEV_API_KEY) {
+            secret = process.env.DEV_API_KEY
+        }
+
+        if (!secret) {
+            return c.json({
+                error: { code: 'TREX_UNAUTHORIZED', message: 'Agent ID or API Key not found.', status: 401 }
+            }, 401)
+        }
+
+        // Construct canonical string
+        const method = c.req.method
+        // Hono req.path gives the path without query string, which is standard for signatures unless queries are included
+        const path = new URL(c.req.url).pathname 
+        
+        const canonicalString = `${method}\n${path}\n${timestampStr}\n${nonce}`
+        
+        const expectedSignature = crypto.createHmac('sha256', secret).update(canonicalString).digest('base64url')
 
         const expectedBuf = Buffer.from(expectedSignature)
-        const signatureBuf = Buffer.from(signature)
+        const signatureBuf = Buffer.from(signatureBase64url)
 
         if (expectedBuf.length !== signatureBuf.length ||
             !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
@@ -68,7 +113,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
             }, 401)
         }
 
-        c.set('agent_id', agent_id)
+        c.set('agent_id', agentId)
         await next()
 
     } catch (error) {
