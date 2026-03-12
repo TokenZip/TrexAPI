@@ -30,7 +30,14 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+.cursor/
 *.sublime-*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
 
 # Official site UI source (not in public repo; CF deploy uses worker’s embedded copy)
 public/demo.html

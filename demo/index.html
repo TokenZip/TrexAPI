@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TokenZip Protocol — Live Demo</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --accent: #6366f1;
+    --accent-glow: rgba(99,102,241,.25);
+    --green: #22c55e;
+    --green-glow: rgba(34,197,94,.2);
+    --text: #e4e4e7;
+    --text-muted: #71717a;
+    --watermark: rgba(99,102,241,.08);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  header .logo {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+  }
+  header .logo span { color: var(--accent); }
+  header .badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    border: 1px solid rgba(99,102,241,.3);
+  }
+
+  .container {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    height: calc(100vh - 57px);
+  }
+
+  /* Left: Agent Chat */
+  .chat-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .chat-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chat-header .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green-glow);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; }
+    50% { opacity:.4; }
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg {
+    max-width: 90%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    animation: msgIn .3s ease;
+  }
+  @keyframes msgIn {
+    from { opacity:0; transform:translateY(8px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.agent {
+    align-self: flex-start;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.agent .tag {
+    font-size: 10px;
+    color: var(--accent);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .msg code {
+    background: rgba(255,255,255,.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .typing-indicator {
+    display: none;
+    align-self: flex-start;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    border-bottom-left-radius: 4px;
+    gap: 4px;
+  }
+  .typing-indicator.show { display: flex; }
+  .typing-indicator i {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: typeDot 1.4s infinite;
+  }
+  .typing-indicator i:nth-child(2) { animation-delay: .2s; }
+  .typing-indicator i:nth-child(3) { animation-delay: .4s; }
+  @keyframes typeDot {
+    0%,60%,100% { opacity:.3; transform:scale(.8); }
+    30% { opacity:1; transform:scale(1); }
+  }
+
+  .input-area {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .input-area input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .input-area input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .input-area input::placeholder { color: var(--text-muted); }
+  .input-area button {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 0 20px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .input-area button:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+  }
+  .input-area button:active { transform: translateY(0); }
+
+  /* Right: Content Display */
+  .content-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .content-header {
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .content-header .title {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .content-header .stats {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .content-header .stats .val { color: var(--green); font-weight: 600; }
+
+  .content-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px;
+    position: relative;
+  }
+
+  .placeholder-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    gap: 12px;
+  }
+  .placeholder-state .icon {
+    font-size: 48px;
+    opacity: .3;
+  }
+  .placeholder-state p {
+    font-size: 14px;
+  }
+  .placeholder-state .hint {
+    font-size: 12px;
+    opacity: .5;
+    margin-top: 4px;
+  }
+
+  .article { display: none; }
+  .article.visible { display: block; animation: fadeUp .5s ease; }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(20px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  .article-meta {
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .article-meta .source {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(239,68,68,.1);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,.2);
+    margin-bottom: 12px;
+  }
+  .article-meta h1 {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: -.5px;
+    margin-bottom: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .article-meta .byline {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .article-text {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.9;
+    color: #d4d4d8;
+    position: relative;
+  }
+  .article-text p { margin-bottom: 20px; }
+
+  .watermark-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+  }
+  .watermark-overlay::before {
+    content: 'Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip    Licensed via TokenZip';
+    position: absolute;
+    inset: -50%;
+    font-size: 16px;
+    font-family: -apple-system, sans-serif;
+    color: var(--watermark);
+    transform: rotate(-35deg);
+    line-height: 80px;
+    letter-spacing: 20px;
+    white-space: pre-wrap;
+    word-spacing: 80px;
+  }
+
+  /* Payment Toast */
+  .payment-toast {
+    position: fixed;
+    bottom: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    transition: bottom .5s cubic-bezier(.34,1.56,.64,1);
+    z-index: 100;
+    min-width: 420px;
+  }
+  .payment-toast.show { bottom: 32px; }
+
+  .payment-toast .pay-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--green-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .payment-toast .pay-info { flex:1; }
+  .payment-toast .pay-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .payment-toast .pay-amount {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green);
+  }
+  .payment-toast .pay-amount span {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 12px;
+    margin-left: 6px;
+  }
+
+  .progress-bar-wrap {
+    width: 100px;
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .progress-bar-wrap .bar {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 2px;
+    transition: width 1.2s ease;
+  }
+
+  /* Speed comparison badge */
+  .speed-badge {
+    position: absolute;
+    top: 16px;
+    right: 28px;
+    background: rgba(34,197,94,.1);
+    border: 1px solid rgba(34,197,94,.25);
+    color: var(--green);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    display: none;
+    animation: fadeIn .4s ease;
+  }
+  .speed-badge.show { display: flex; align-items: center; gap: 6px; }
+  @keyframes fadeIn {
+    from { opacity:0; }
+    to { opacity:1; }
+  }
+
+  .messages::-webkit-scrollbar,
+  .content-body::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track,
+  .content-body::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb,
+  .content-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Trex<span>API</span> — TokenZip Protocol</div>
+  <div class="badge">Demo v0.1 · YC W26</div>
+</header>
+
+<div class="container">
+  <!-- Left Panel: Agent Chat -->
+  <div class="chat-panel">
+    <div class="chat-header">
+      <div class="dot"></div>
+      TokenZip Agent · Online
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="msg agent">
+        <div class="tag">System</div>
+        TokenZip Agent ready. Enter any <code>TrexID</code> to fetch licensed content.<br><br>
+        Try: <code>CX-2026-0311</code> or <code>WSJ-2026-0842</code>
+      </div>
+    </div>
+
+    <div class="typing-indicator" id="typing">
+      <i></i><i></i><i></i>
+    </div>
+
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="Enter TrexID, e.g. CX-2026-0311" autocomplete="off">
+      <button id="sendBtn" onclick="handleSend()">Send</button>
+    </div>
+  </div>
+
+  <!-- Right Panel: Content Display -->
+  <div class="content-panel">
+    <div class="content-header">
+      <div class="title" id="contentTitle">Waiting for content…</div>
+      <div class="stats" id="statsBar" style="display:none">
+        <div>Transfer <span class="val" id="statTime">0.18s</span></div>
+        <div>Tokens <span class="val" id="statTokens">12,847</span></div>
+        <div>Compression <span class="val" id="statRatio">97.2%</span></div>
+      </div>
+    </div>
+
+    <div class="content-body">
+      <div class="speed-badge" id="speedBadge">
+        ⚡ 75x faster than plain-text transfer
+      </div>
+
+      <div class="placeholder-state" id="placeholder">
+        <div class="icon">◈</div>
+        <p>Enter a TrexID on the left to start</p>
+        <div class="hint">Content will be decoded and displayed via TokenZip Protocol</div>
+      </div>
+
+      <div class="article" id="article">
+        <div class="watermark-overlay"></div>
+        <div class="article-meta">
+          <div class="source">◆ Caixin Media · Licensed</div>
+          <h1 id="articleTitle">PBOC Expands e-CNY Cross-Border Pilot to 28 Cities</h1>
+          <div class="byline" id="articleByline">Caixin | March 11, 2026 09:42 Beijing | TrexID: CX-2026-0311</div>
+        </div>
+        <div class="article-text" id="articleText">
+          <p>The People's Bank of China on March 11 announced that the digital yuan (e-CNY) cross-border settlement pilot will expand from 14 cities to 28 major cities nationwide, with bilateral digital currency bridge agreements reached with six ASEAN central banks. This marks the largest expansion since the e-CNY pilot began in 2024.</p>
+          <p>Mu Changchun, director of the PBOC's Digital Currency Research Institute, said at a press conference that the new phase will focus on three areas: full coverage of cross-border trade settlement scenarios, deep integration with commercial banks' existing systems, and exploration of smart-contract-based automated clearing.</p>
+          <p>"We have completed technical integration tests with MAS, the Bank of Thailand, and Bank Negara Malaysia," Mu said. "Daily processing capacity has reached 150,000 cross-border transactions, with single settlement time under three seconds."</p>
+          <p>Core technical upgrades include a new distributed ledger architecture supporting over 10,000 TPS—about eight times the previous generation—and a zero-knowledge privacy layer so counterparty data stays off third-party systems while meeting regulatory requirements.</p>
+          <p>Analysts expect the move to significantly increase yuan usage in ASEAN. UBS Asia Pacific chief economist Tao Wang said that if e-CNY cross-border settlement rolls out across the region, the yuan's share of regional trade settlement could rise from about 12% now to 25–30% by 2028.</p>
+          <p>The central bank also released the "e-CNY Open Banking Protocol v2.0" API standard for financial institutions, allowing third-party payment and fintech firms to plug into the e-CNY clearing network via standardized interfaces—seen as a major step toward an open e-CNY ecosystem.</p>
+          <p>Some industry figures struck a cautious note. A fintech head at a large state-owned bank told Caixin that cross-border settlement involves compliance across jurisdictions, and that "technical connectivity is only the first step; the real challenge is coordination and mutual recognition of regulatory frameworks."</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Toast -->
+<div class="payment-toast" id="paymentToast">
+  <div class="pay-icon">✓</div>
+  <div class="pay-info">
+    <div class="pay-label">Royalty paid to rights holder</div>
+    <div class="pay-amount">$0.01 <span>→ Caixin Media via TokenZip Ledger</span></div>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="bar" id="payBar"></div>
+  </div>
+</div>
+
+<script>
+const DEMO_DATA = {
+  'CX-2026-0311': {
+    source: 'Caixin Media',
+    title: 'PBOC Expands e-CNY Cross-Border Pilot to 28 Cities',
+    byline: 'Caixin | March 11, 2026 09:42 Beijing',
+    cost: '$0.01',
+    tokens: '12,847',
+    time: '0.18s',
+    ratio: '97.2%'
+  },
+  'WSJ-2026-0842': {
+    source: 'Wall Street Journal',
+    title: 'Federal Reserve Signals Rate Pause Amid Inflation Concerns',
+    byline: 'By Sarah Chen | March 11, 2026 | New York',
+    cost: '$0.02',
+    tokens: '8,920',
+    time: '0.14s',
+    ratio: '96.8%'
+  }
+};
+
+const messages = document.getElementById('messages');
+const typing = document.getElementById('typing');
+const userInput = document.getElementById('userInput');
+
+userInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleSend();
+});
+
+function addMsg(text, type) {
+  const div = document.createElement('div');
+  div.className = `msg ${type}`;
+  if (type === 'agent') {
+    div.innerHTML = `<div class="tag">Agent</div>${text}`;
+  } else {
+    div.textContent = text;
+  }
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function showTyping(show) {
+  typing.classList.toggle('show', show);
+  if (show) {
+    messages.appendChild(typing);
+    messages.scrollTop = messages.scrollHeight;
+  }
+}
+
+function handleSend() {
+  const val = userInput.value.trim();
+  if (!val) return;
+  userInput.value = '';
+  addMsg(val, 'user');
+
+  const id = val.toUpperCase();
+  const data = DEMO_DATA[id];
+
+  if (data) {
+    showTyping(true);
+    setTimeout(() => {
+      showTyping(false);
+      addMsg(
+        `Resolving <code>${id}</code>…<br>` +
+        `<br>→ TokenZip index hit, no full-text transfer` +
+        `<br>→ Decoding vector codebook…`,
+        'agent'
+      );
+
+      setTimeout(() => {
+        showTyping(true);
+        setTimeout(() => {
+          showTyping(false);
+          addMsg(
+            `✓ Content loaded via <code>TokenZip Protocol</code>` +
+            `<br>→ Transfer <b>${data.time}</b> ｜ ${data.tokens} tokens` +
+            `<br>→ Compression <b>${data.ratio}</b> (TrexID pointer only)` +
+            `<br><br>Royalty settled → <b>${data.cost}</b> → ${data.source}`,
+            'agent'
+          );
+          showArticle(id, data);
+        }, 600);
+      }, 800);
+    }, 1000);
+  } else {
+    showTyping(true);
+    setTimeout(() => {
+      showTyping(false);
+      addMsg(
+        `No content found for <code>${val}</code>.<br><br>` +
+        `Demo IDs:<br>` +
+        `· <code>CX-2026-0311</code> — Caixin Media<br>` +
+        `· <code>WSJ-2026-0842</code> — Wall Street Journal`,
+        'agent'
+      );
+    }, 500);
+  }
+}
+
+function showArticle(id, data) {
+  document.getElementById('placeholder').style.display = 'none';
+
+  const article = document.getElementById('article');
+  article.classList.add('visible');
+
+  document.getElementById('contentTitle').textContent =
+    `${data.source} · ${id}`;
+
+  document.getElementById('statTime').textContent = data.time;
+  document.getElementById('statTokens').textContent = data.tokens;
+  document.getElementById('statRatio').textContent = data.ratio;
+  document.getElementById('statsBar').style.display = 'flex';
+
+  if (id === 'WSJ-2026-0842') {
+    document.getElementById('articleTitle').textContent = data.title;
+    document.getElementById('articleByline').textContent =
+      `${data.byline} | TrexID: ${id}`;
+    document.querySelector('.source').textContent = `◆ ${data.source} · Licensed`;
+    document.getElementById('articleText').innerHTML = `
+      <p>The Federal Reserve on Tuesday signaled it would hold interest rates steady through the second quarter of 2026, citing persistent inflationary pressures in the housing and services sectors despite cooling in commodity prices.</p>
+      <p>Fed Chair Jerome Powell, speaking at a press conference following the Federal Open Market Committee's two-day meeting, emphasized that the central bank remains "data-dependent" and that any future rate adjustments would be contingent on sustained progress toward the 2% inflation target.</p>
+      <p>"We are seeing encouraging signs in several sectors of the economy," Powell said. "However, the path to price stability requires patience, and we want to ensure that the progress we've made is durable rather than transitory."</p>
+      <p>The decision to hold the federal funds rate at the 4.25%-4.50% range was unanimous among the committee's 12 voting members, marking the fourth consecutive meeting without a rate change.</p>
+      <p>Financial markets reacted positively to the announcement, with the S&P 500 rising 0.8% and the 10-year Treasury yield falling 5 basis points to 3.92%. The dollar index weakened slightly against a basket of major currencies.</p>
+    `;
+  }
+
+  const speedBadge = document.getElementById('speedBadge');
+  speedBadge.classList.add('show');
+
+  setTimeout(() => {
+    const toast = document.getElementById('paymentToast');
+    toast.querySelector('.pay-amount').innerHTML =
+      `${data.cost} <span>→ ${data.source} via TokenZip Ledger</span>`;
+    toast.classList.add('show');
+
+    setTimeout(() => {
+      document.getElementById('payBar').style.width = '100%';
+    }, 300);
+
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 4000);
+  }, 500);
+}
+</script>
+</body>
+</html>
