@@ -228,8 +228,9 @@ sequenceDiagram
    ```
 2. **拦截与拉取 (Intercept & Fetch):** Agent B 的 TZP 拦截器（Interceptor）识别到 `[TZP: ...]` 标记后：
    - 从最近的边缘节点拉取语义载荷。
-   - 将 Int8 向量序列反量化为 Float32 中间态向量序列。
-   - **执行 RAG 索引模式 (默认核心路径):** 将向量序列存入接收方的本地内存或向量引擎，作为检索增强生成（RAG）的知识源。当 Agent 遇到 `[TZP: ...]` 时，拦截器自动将原始上下文查询转换为对该向量空间的检索操作。
+   - **执行双路径 RAG 检索 (默认核心路径):** Interceptor 根据载荷内容自动选择最优检索路径（详见 4.4.5 检索策略规范）：
+     - **Path A — Fallback Strong（高精度路径）:** 若载荷包含 `fallback_text_zstd_b64`，解压明文后以高精度嵌入模型（如 bge-m3 / voyage-3，≥1024d）重编码，构建本地向量索引进行 query-time 对齐检索。
+     - **Path B — Vector Only（保底路径）:** 若仅有量化向量序列，反量化为 Float32 后以 `all-MiniLM-L6-v2`（384d）在同一向量空间执行余弦检索。
    - **执行解耦重建 (Decoupled Reconstruction，可选补丁方案):** 若 Agent B 只需要进行如“通读全文并提取摘要”的操作（LLM 无法直接阅读向量本身）：
      - **方案 A (明文回退):** Agent B 可根据场景读取附加在载荷中高压比的 `fallback_text_zstd` 明文，进行最后的文字拼接以供阅读。
      - **方案 B (投影转换):** Interceptor 提供一个专门用于“语义到自然语言”的还原模块 (Semantic Projector) 反推生成提示词内容。
@@ -276,6 +277,93 @@ TZP 指针标记的标准格式为 `[TZP: <trex_id>]`，其正则表达式**必�
 - **必须 (MUST):** 单个 TrexID 的拉取失败（网络错误、404、403 等）**不得**导致整个提示词处理流程中断。
 - **必须 (MUST):** 拉取失败时，Interceptor 必须将该标记替换为标准错误占位符：`[TZP_ERROR: {trex_id}: {error_code}]`（例如：`[TZP_ERROR: tx_us_8f9A2bXr7: TREX_NOT_FOUND]`），使下游 Agent 可感知并处理该异常。
 - **应当 (SHOULD):** Interceptor 应当对拉取请求设置超时（建议 **10 秒**），超时后按上述失败流程处理。
+
+**4.4.5 检索策略规范 (Retrieval Strategy Specification)**
+
+Interceptor 在完成载荷拉取后，**必须 (MUST)** 根据载荷内容自动选择最优检索路径。TZP v1.0 定义两个检索等级（Retrieval Tier）：
+
+| 检索等级 | 标识符 | 触发条件 | 检索精度 |
+| :------- | :------- | :------- | :------- |
+| **Fallback Strong** | `fallback_strong` | 载荷包含 `fallback_text_zstd_b64` 字段 | 高 |
+| **Vector Only** | `vector_only` | 载荷仅包含量化向量序列 | 保底 |
+
+**Path A — Fallback Strong（明文重编码路径）**
+
+当载荷包含 `fallback_text_zstd_b64` 降级明文时：
+
+1. **解压 (Decompress):** 对 `fallback_text_zstd_b64` 执行 Base64 解码 → zstd 解压 → UTF-8 明文。
+2. **分块 (Chunk):** 将明文按 `chunk_count` 对齐分割（payload_first 策略），使 chunk\[i\] 与 `vector_seq_b64[i]` 保持一一映射。若对齐失败，**应当 (SHOULD)** 回退到基于 token 粒度的滑窗分块（建议 chunk\_size=256，overlap=32）。
+3. **强模型重编码 (Query-Time Re-Encoding):** 使用高精度嵌入模型对文本分块重新编码，构建本地向量索引（如 FAISS IndexFlatIP）。
+4. **检索 (Retrieve):** 以同一强模型编码用户查询，对 L2 归一化后的向量执行 top-k 内积近邻检索。
+
+- **应当 (SHOULD):** 实现方应当使用不低于 1024 维的高精度嵌入模型执行重编码。推荐模型包括 `BAAI/bge-m3`（本地推理，1024d）和 `voyage-3`（API 调用，1024d）。
+- **可以 (MAY):** 实现方可以使用其他通过 TZP 兼容性认证的嵌入模型。
+- **应当 (SHOULD):** 实现方应当对嵌入模型实例进行缓存，避免同一 `process()` 调用内重复初始化。
+
+> **设计依据 (Informative)：** Push 阶段使用 MiniLM（轻量 384d）确保跨模型兼容性，但其语义精度有限。Path A 在 Pull 阶段利用载荷中的明文回退数据，以强模型重新编码实现 query-time 对齐，彻底绕过 MiniLM 精度瓶颈，同时不影响协议的传输兼容性。
+
+**Path B — Vector Only（同空间检索路径）**
+
+当载荷仅包含量化向量序列（无 `fallback_text_zstd_b64`）时：
+
+1. **反量化 (Dequantize):** 按 Appendix A.3 公式将 Int8 向量还原为 Float32。
+2. **构建索引 (Index):** 以反量化后的 384d 向量直接构建近邻索引。
+3. **检索 (Retrieve):** 使用 `all-MiniLM-L6-v2`（384d）编码用户查询，在同一向量空间执行余弦相似度检索。
+
+- **必须 (MUST):** Path B 查询编码**必须**使用与 TZP Interlingua Space 相同的标准嵌入模型（v1.0 为 `all-MiniLM-L6-v2`），以保证向量空间一致性。
+
+```
+                    ┌─────────────────────┐
+                    │     拉取载荷         │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │ fallback_text_zstd  │
+                    │      存在？          │
+                    └──┬──────────────┬───┘
+                   是  │              │ 否
+          ┌────────────▼───┐   ┌─────▼────────────┐
+          │ Path A:        │   │ Path B:           │
+          │ Fallback Strong│   │ Vector Only       │
+          └───────┬────────┘   └────────┬──────────┘
+                  │                     │
+          ┌───────▼────────┐   ┌────────▼──────────┐
+          │ zstd 解压      │   │ 反量化 → 384d     │
+          │ → 明文分块     │   │ Float32 向量      │
+          └───────┬────────┘   └────────┬──────────┘
+                  │                     │
+          ┌───────▼────────┐   ┌────────▼──────────┐
+          │ 强模型重编码   │   │ MiniLM 编码查询   │
+          │ bge-m3 /       │   │ (384d 同空间)     │
+          │ voyage-3       │   │                   │
+          └───────┬────────┘   └────────┬──────────┘
+                  │                     │
+                  └──────────┬──────────┘
+                    ┌────────▼──────────┐
+                    │ top-k 检索        │
+                    │ → 注入 Prompt     │
+                    └───────────────────┘
+```
+
+**4.4.6 预算控制 (Budget Controls)**
+
+为防止单次 `process()` 调用产生过高的计算或注入成本，Interceptor **应当 (SHOULD)** 实施以下预算控制：
+
+- **应当 (SHOULD):** 单次调用处理的 TZP 标记数量不超过 **5** 个。超出时，Interceptor 应当按出现顺序处理前 N 个标记，对剩余标记按 4.4.4 失败处理流程处理。
+- **应当 (SHOULD):** 注入到最终 Prompt 的检索结果总长度不超过 **500 tokens**。超出时按相关性得分排序截断。
+- **可以 (MAY):** 实现方可自定义 `top_k`（建议默认值为 **5**）、最大分块数、最大嵌入文本数等参数。
+
+**4.4.7 错误模式 (Error Modes)**
+
+除 4.4.4 定义的标准错误占位符外，Interceptor **可以 (MAY)** 支持以下替代错误模式，以适配不同的下游 Agent 消费场景：
+
+| 模式 | 标识符 | 行为 |
+| :--- | :--- | :--- |
+| **占位符 (Placeholder)** | `placeholder` | 替换为 `[TZP_ERROR: {trex_id}: {error_code}]`（默认，4.4.4 规范行为） |
+| **静默跳过 (Silent Skip)** | `silent_skip` | 移除标记，不注入任何内容 |
+| **摘要提示 (Summary)** | `summary` | 注入可读提示，如 `(Context {trex_id} is temporarily unavailable)` |
+
+- **必须 (MUST):** 若实现方支持多种错误模式，**默认模式必须**为 `placeholder`。
 
 ---
 
@@ -634,6 +722,9 @@ TZP v1.0 定义了三个合规等级，供实现方声明其兼容程度：
    - 验证推送/拉取请求/响应的 JSON 结构严格符合本规范第 5 节。
 4. **端到端往返测试 (End-to-End Round-Trip Test):**
    - 模拟 Agent A 推送、Agent B 拉取的完整流程，验证数据完整性和校验和匹配。
+5. **检索路径选择测试 (Retrieval Path Selection Test):**
+   - 验证 Interceptor 在载荷包含 `fallback_text_zstd_b64` 时选择 Path A（Fallback Strong），在仅有向量序列时选择 Path B（Vector Only）。
+   - 验证 Path B 查询编码使用与 Interlingua Space 一致的标准嵌入模型。
 
 ### 8.3 SDK 兼容性标记 (SDK Compatibility Marking)
 

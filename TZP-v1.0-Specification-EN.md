@@ -227,8 +227,9 @@ Sender SDK                          TrexAPI Edge Network
    ```
 2. **Intercept & Fetch:** When Agent B's TZP Interceptor detects the `[TZP: ...]` marker:
    - Fetches the semantic payload from the nearest edge node.
-   - Dequantizes the Int8 vector sequence back to Float32 interlingua vector sequence.
-   - **RAG Indexing Mode (default core path):** Stores the vector sequence into the Receiver's local memory or vector engine as a knowledge source for Retrieval-Augmented Generation (RAG). When the Agent encounters `[TZP: ...]`, the Interceptor automatically converts the original context query into a retrieval operation against that vector space.
+   - **Dual-Path RAG Retrieval (default core path):** The Interceptor automatically selects the optimal retrieval path based on payload contents (see Section 4.4.5 Retrieval Strategy Specification):
+     - **Path A — Fallback Strong (high-precision path):** If the payload contains `fallback_text_zstd_b64`, decompresses the plaintext, re-encodes with a high-precision embedding model (e.g., bge-m3 / voyage-3, ≥1024d), and builds a local vector index for query-time aligned retrieval.
+     - **Path B — Vector Only (baseline path):** If only quantized vector sequences are available, dequantizes to Float32 and performs cosine similarity retrieval in the same 384d vector space using `all-MiniLM-L6-v2`.
    - **Decoupled Reconstruction (optional patch path):** If Agent B only needs to perform operations like "read through the full text and extract a summary" (LLMs cannot directly read vectors):
      - **Option A (Plaintext Fallback):** Agent B can read the high-compression-ratio `fallback_text_zstd` plaintext attached to the payload for final text assembly.
      - **Option B (Projection Transform):** The Interceptor provides a dedicated "semantic-to-natural-language" restoration module (Semantic Projector) to reverse-generate prompt content.
@@ -275,6 +276,94 @@ The standard format for TZP pointer markers is `[TZP: <trex_id>]`, and the regex
 - **MUST:** A fetch failure for a single TrexID (network error, 404, 403, etc.) MUST NOT cause the entire prompt processing pipeline to abort.
 - **MUST:** On fetch failure, the Interceptor MUST replace the marker with a standard error placeholder: `[TZP_ERROR: {trex_id}: {error_code}]` (e.g., `[TZP_ERROR: tx_us_8f9A2bXr7: TREX_NOT_FOUND]`), allowing downstream Agents to perceive and handle the exception.
 - **SHOULD:** The Interceptor SHOULD set a timeout for fetch requests (recommended **10 seconds**). After timeout, the failure flow described above SHOULD apply.
+
+**4.4.5 Retrieval Strategy Specification**
+
+After completing payload fetch, the Interceptor **MUST** automatically select the optimal retrieval path based on payload contents. TZP v1.0 defines two Retrieval Tiers:
+
+| Retrieval Tier | Identifier | Trigger Condition | Retrieval Precision |
+| :------------- | :--------- | :---------------- | :------------------ |
+| **Fallback Strong** | `fallback_strong` | Payload contains `fallback_text_zstd_b64` field | High |
+| **Vector Only** | `vector_only` | Payload contains only quantized vector sequence | Baseline |
+
+**Path A — Fallback Strong (Plaintext Re-Encoding Path)**
+
+When the payload contains `fallback_text_zstd_b64` degradation plaintext:
+
+1. **Decompress:** Base64 decode → zstd decompress → UTF-8 plaintext.
+2. **Chunk:** Split plaintext aligned to `chunk_count` (payload\_first strategy), maintaining a 1-to-1 mapping between chunk\[i\] and `vector_seq_b64[i]`. If alignment fails, **SHOULD** fall back to token-level sliding window chunking (recommended chunk\_size=256, overlap=32).
+3. **Query-Time Re-Encoding:** Re-encode text chunks using a high-precision embedding model to build a local vector index (e.g., FAISS IndexFlatIP).
+4. **Retrieve:** Encode the user query with the same strong model, perform top-k inner-product nearest neighbor retrieval on L2-normalized vectors.
+
+- **SHOULD:** Implementations SHOULD use a high-precision embedding model with no fewer than 1024 dimensions for re-encoding. Recommended models include `BAAI/bge-m3` (local inference, 1024d) and `voyage-3` (API-based, 1024d).
+- **MAY:** Implementations MAY use other embedding models that have passed TZP compatibility certification.
+- **SHOULD:** Implementations SHOULD cache embedding model instances to avoid repeated initialization within a single `process()` call.
+
+> **Design Rationale (Informative):** The Push phase uses MiniLM (lightweight 384d) to ensure cross-model compatibility, but its semantic precision is limited. Path A leverages the plaintext fallback data in the payload at Pull time, re-encoding with a strong model for query-time alignment, completely bypassing the MiniLM precision bottleneck without affecting protocol transport compatibility.
+
+**Path B — Vector Only (Same-Space Retrieval Path)**
+
+When the payload contains only quantized vector sequences (no `fallback_text_zstd_b64`):
+
+1. **Dequantize:** Restore Int8 vectors to Float32 per the formula in Appendix A.3.
+2. **Build Index:** Build a nearest neighbor index directly from the dequantized 384d vectors.
+3. **Retrieve:** Encode the user query with `all-MiniLM-L6-v2` (384d), perform cosine similarity retrieval in the same vector space.
+
+- **MUST:** Path B query encoding **MUST** use the same standard embedding model as the TZP Interlingua Space (v1.0: `all-MiniLM-L6-v2`) to ensure vector space consistency.
+
+```
+                    ┌─────────────────────┐
+                    │    Fetch Payload     │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │ fallback_text_zstd  │
+                    │     present?        │
+                    └──┬──────────────┬───┘
+                  Yes  │              │ No
+          ┌────────────▼───┐   ┌─────▼────────────┐
+          │ Path A:        │   │ Path B:           │
+          │ Fallback Strong│   │ Vector Only       │
+          └───────┬────────┘   └────────┬──────────┘
+                  │                     │
+          ┌───────▼────────┐   ┌────────▼──────────┐
+          │ zstd decompress│   │ Dequantize → 384d │
+          │ → chunk text   │   │ Float32 vectors   │
+          └───────┬────────┘   └────────┬──────────┘
+                  │                     │
+          ┌───────▼────────┐   ┌────────▼──────────┐
+          │ Strong model   │   │ MiniLM encode     │
+          │ re-encode      │   │ query (384d       │
+          │ bge-m3 /       │   │ same-space)       │
+          │ voyage-3       │   │                   │
+          └───────┬────────┘   └────────┬──────────┘
+                  │                     │
+                  └──────────┬──────────┘
+                    ┌────────▼──────────┐
+                    │ top-k retrieval   │
+                    │ → inject Prompt   │
+                    └───────────────────┘
+```
+
+**4.4.6 Budget Controls**
+
+To prevent excessive computation or injection costs from a single `process()` call, the Interceptor **SHOULD** implement the following budget controls:
+
+- **SHOULD:** The number of TZP markers processed in a single call SHOULD NOT exceed **5**. When exceeded, the Interceptor SHOULD process the first N markers in order of appearance and handle remaining markers via the failure flow defined in 4.4.4.
+- **SHOULD:** The total length of retrieved results injected into the final prompt SHOULD NOT exceed **500 tokens**. When exceeded, truncate by relevance score ranking.
+- **MAY:** Implementations MAY customize `top_k` (recommended default: **5**), maximum chunk count, maximum embedding text count, and other parameters.
+
+**4.4.7 Error Modes**
+
+In addition to the standard error placeholder defined in 4.4.4, the Interceptor **MAY** support the following alternative error modes to accommodate different downstream Agent consumption scenarios:
+
+| Mode | Identifier | Behavior |
+| :--- | :--------- | :------- |
+| **Placeholder** | `placeholder` | Replace with `[TZP_ERROR: {trex_id}: {error_code}]` (default, 4.4.4 normative behavior) |
+| **Silent Skip** | `silent_skip` | Remove marker, inject nothing |
+| **Summary** | `summary` | Inject human-readable note, e.g., `(Context {trex_id} is temporarily unavailable)` |
+
+- **MUST:** If an implementation supports multiple error modes, the **default mode MUST** be `placeholder`.
 
 ---
 
@@ -633,6 +722,9 @@ Any implementation claiming TZP compliance **MUST** pass the officially provided
    - Verify that push/pull request/response JSON structures strictly conform to Section 5 of this specification.
 4. **End-to-End Round-Trip Test:**
    - Simulate a complete flow of Agent A pushing and Agent B pulling, verifying data integrity and checksum matching.
+5. **Retrieval Path Selection Test:**
+   - Verify that the Interceptor selects Path A (Fallback Strong) when the payload contains `fallback_text_zstd_b64`, and Path B (Vector Only) when only vector sequences are present.
+   - Verify that Path B query encoding uses the same standard embedding model as the Interlingua Space.
 
 ### 8.3 SDK Compatibility Marking
 
